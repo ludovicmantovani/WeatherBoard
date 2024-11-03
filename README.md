@@ -1,5 +1,7 @@
 # WeatherBoard
 
+![Screen capture](https://github.com/ludovicmantovani/WeatherBoard/blob/master/img/capture02.png)
+
 ## Interface description
 * City Name: The location for which weather data is shown.
 * Current Date and Time: Updated to the minute.
