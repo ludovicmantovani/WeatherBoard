@@ -21,6 +21,8 @@ qt_add_qml_module(appWeatherBoard
         SOURCES currentweatherdata.h currentweatherdata.cpp
         SOURCES apiweatherimagerequesthandler.h apiweatherimagerequesthandler.cpp
         RESOURCES .gitignore
+        QML_FILES Parameter.qml
+        QML_FILES CityInfo.qml
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
