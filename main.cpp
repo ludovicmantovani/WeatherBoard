@@ -6,6 +6,8 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QFile>
+#include <QSettings>
+#include <QString>
 #include <QDir>
 #include <QDebug>
 #include <QJsonDocument>
@@ -17,57 +19,60 @@
 #include "apiweatherimagerequesthandler.h"
 #include "currentweatherdata.h"
 
-#define INPUT_FILE "../../data.txt"
+#define INPUT_FILE "../../config.ini"
 
 
 using namespace std;
 
-qsizetype getApiKey(const QString& filePath, QString& apiKey) {
-    QFile dataFile(filePath);
+/**
+ * Creates a default configuration file at the specified file path.
+ *
+ * This function creates an INI format configuration file with a "General"
+ * group, initializing "apiKey" and "city" values to empty strings. It logs
+ * a message indicating the creation of the file.
+ *
+ * @param filePath The path where the configuration file should be created.
+ */
+void createDefaultConfigFile(const QString& filePath) {
+    QSettings settings(filePath, QSettings::IniFormat);
 
-    // Check if the file exists
-    if (!dataFile.exists()) {
-        qWarning() << dataFile.fileName() << "does not exist.";
-        return -1;
-    }
+    settings.beginGroup("General");
+    settings.setValue("apiKey", QString());
+    settings.setValue("city", QString());
+    settings.endGroup();
 
-    // Get the file permissions
-    QFileDevice::Permissions filePermissions = dataFile.permissions();
-    bool fileReadOk = filePermissions & QFileDevice::ReadUser;
-    bool fileWriteOk = filePermissions & QFileDevice::WriteUser;
-
-    qDebug() << QString("%1 is %2 for reading and %3 for writing.").arg(
-        dataFile.fileName(), fileReadOk ? "OK" : "KO", fileWriteOk ? "OK" : "KO");
-
-    // Check if the file is readable
-    if (!fileReadOk) return -1;
-
-    // Open the file in read-only mode
-    if (dataFile.open(QIODevice::ReadOnly)) {
-        QTextStream in(&dataFile);
-        apiKey = in.readLine().simplified();  // Read and clean up the first line
-        dataFile.close();
-    }
-
-    // Check if the API key is empty or too short
-    if (apiKey.isEmpty() || apiKey.length() < 3) {
-        qWarning() << "The API key is either empty or too short.";
-        return -1;
-    }
-
-    // Display the masked API key for debugging
-    qDebug() << "Masked API key:" <<
-        apiKey.front() + QString(apiKey.length() - 2, '*') + apiKey.back();
-
-    return apiKey.length();
+    qDebug() << "Default config file created at:" << filePath;
 }
 
+
+/**
+ * Loads the configuration from the specified file path.
+ *
+ * This function reads the configuration from the specified file path and
+ * loads the "apiKey" and "city" values into the corresponding arguments.
+ *
+ * @param filePath The path where the configuration file is located.
+ * @param apiKey The API key to be loaded from the configuration file.
+ * @param city The city to be loaded from the configuration file.
+ */
+void loadConfig(const QString& filePath, QString& apiKey, QString& city) {
+    QSettings settings(filePath, QSettings::IniFormat);
+    
+    // Api key
+    apiKey = settings.value("General/apiKey").toString();
+    if (apiKey.isEmpty()) { qWarning() << "The API key is empty in the config file."; }
+
+    // City
+    city = settings.value("General/city").toString();
+    if (city.isEmpty()) { qWarning() << "The city is empty in the config file."; }
+};
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
     CurrentWeatherData curWeatherData;
     QString apiKey;
+    QString city;
     ApiWeatherDataRequestHandler weatherDataApiHandler;
     ApiWeatherImageRequestHandler weatherImageApiHandler;
 
@@ -91,19 +96,22 @@ int main(int argc, char *argv[]) {
     QObject::connect(&curWeatherData, &CurrentWeatherData::imageCodeChanged, &weatherImageApiHandler, &ApiWeatherImageRequestHandler::makeRequest);
 
 
-    getApiKey(INPUT_FILE, apiKey);
+    // Check if the config file exists, create it if it doesn't
+    if (!QFile(INPUT_FILE).exists()) {
+        qDebug() << "Config file does not exist. Creating a default config file...";
+        createDefaultConfigFile(INPUT_FILE);
+    }
+
+    // Load data from the config file
+    loadConfig(INPUT_FILE, apiKey, city);
 
     weatherDataApiHandler.makeRequest(ApiWeatherDataRequestHandler::UrlWeather,{
         {"units", "metric"},
         {"lang", "fr"},
-        {"q", "Guyancourt"},
+        {"q", city},
         {"appid", apiKey},
     }, 90
     );
-
-
-    //sendWeatherRequest(apiKey, manager);
-
 
     return app.exec();
 }
